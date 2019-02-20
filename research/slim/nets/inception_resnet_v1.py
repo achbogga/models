@@ -29,6 +29,7 @@ import tensorflow as tf
 
 slim = tf.contrib.slim
 
+EMBEDDING_SIZE = 512
 
 # Inception-Resnet-A
 def block35(net, scale=1.0, activation_fn=tf.nn.relu, scope=None, reuse=None):
@@ -308,7 +309,12 @@ def inception_resnet_v1(inputs, num_classes=1001, is_training=True,
         net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                            scope='Dropout')
         end_points['PreLogitsFlatten'] = net
-        logits = slim.fully_connected(net, num_classes, activation_fn=None,
+        prelogits = slim.fully_connected(net, EMBEDDING_SIZE, activation_fn=None, 
+                        scope='Bottleneck', reuse=False)
+        end_points['prelogits'] = prelogits
+        embeddings = tf.nn.l2_normalize(prelogits, 1, 1e-10, name='embeddings')
+        end_points['embeddings'] = embeddings
+        logits = slim.fully_connected(prelogits, num_classes, activation_fn=None,
                                       scope='Logits')
         end_points['Logits'] = logits
         end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')

@@ -27,6 +27,26 @@ from preprocessing import preprocessing_factory
 
 slim = tf.contrib.slim
 
+CENTER_LOSS_ALFA = 0.95
+CENTER_LOSS_FACTOR = 0.05
+def center_loss(features, label, alfa, nrof_classes):
+    """Center loss based on the paper "A Discriminative Feature Learning Approach for Deep Face Recognition"
+       (http://ydwen.github.io/papers/WenECCV16.pdf)
+    """
+    label = tf.argmax(label, axis=1)
+    #label = tf.cast(label, tf.int64)
+    nrof_features = features.get_shape()[1]
+    centers = tf.get_variable('centers', [nrof_classes, nrof_features], dtype=tf.float32,
+        initializer=tf.constant_initializer(0), trainable=False)
+    label = tf.reshape(label, [-1])
+    centers_batch = tf.gather(centers, label)
+    #centers_batch = centers
+    diff = (1 - alfa) * (centers_batch - features)
+    centers = tf.scatter_sub(centers, label, diff)
+    with tf.control_dependencies([centers]):
+        loss = tf.reduce_mean(tf.square(features - centers_batch))
+    return loss, centers
+
 tf.app.flags.DEFINE_string(
     'master', '', 'The address of the TensorFlow master to use.')
 
@@ -468,6 +488,7 @@ def main(_):
       """Allows data parallelism by creating multiple clones of network_fn."""
       images, labels = batch_queue.dequeue()
       logits, end_points = network_fn(images)
+      prelogits = end_points['prelogits']
 
       #############################
       # Specify the loss function #
@@ -479,6 +500,8 @@ def main(_):
             scope='aux_loss')
       slim.losses.softmax_cross_entropy(
           logits, labels, label_smoothing=FLAGS.label_smoothing, weights=1.0)
+      prelogits_center_loss, _ = center_loss(prelogits, labels, CENTER_LOSS_ALFA, (dataset.num_classes - FLAGS.labels_offset))
+      tf.add_to_collection(tf.GraphKeys.LOSSES, prelogits_center_loss * CENTER_LOSS_FACTOR)
       return end_points
 
     # Gather initial summaries.
