@@ -23,7 +23,10 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 27d601a5df8908c6e83af12d31b517abeb1212d4
 import tensorflow as tf
 
 from datasets import dataset_utils
@@ -32,6 +35,7 @@ slim = tf.contrib.slim
 
 _FILE_PATTERN = 'drinks_%s_*.tfrecord'
 
+<<<<<<< HEAD
 DEF_SUMMARY_NUM_CLASSES = 'num_classes'
 DEF_SUMMARY_NUM_TRAIN = 'num_train'
 DEF_SUMMARY_NUM_VALIDATION = 'num_validation'
@@ -44,6 +48,16 @@ _NUM_CLASSES = 0
 _ITEMS_TO_DESCRIPTIONS = {
     'image': 'A color image of varying size.',
     'label': 'A single integer between 0 and NUM_CLASSES-1',
+=======
+#Old data numbers for the cnina drinks
+SPLITS_TO_SIZES = {'train': 1264597, 'validation': 6354}
+
+_NUM_CLASSES = 1119
+
+_ITEMS_TO_DESCRIPTIONS = {
+    'image': 'A color image of varying size.',
+    'label': 'A single integer between 0 and 4',
+>>>>>>> 27d601a5df8908c6e83af12d31b517abeb1212d4
 }
 
 
@@ -64,6 +78,7 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
   Raises:
     ValueError: if `split_name` is not a valid train/validation split.
   """
+<<<<<<< HEAD
 
   # summay format:
   # {DEF_SUMMARY_NUM_CLASSES: num_classes, DEF_SUMMARY_NUM_TRAIN: num_train,
@@ -79,6 +94,8 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
   if (SPLITS_TO_SIZES is None) or (_NUM_CLASSES == 0):
       raise ValueError('invalid SPLITS_TO_SIZES or _NUM_CLASSES')
 
+=======
+>>>>>>> 27d601a5df8908c6e83af12d31b517abeb1212d4
   if split_name not in SPLITS_TO_SIZES:
     raise ValueError('split name %s was not recognized.' % split_name)
 
@@ -92,7 +109,11 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
 
   keys_to_features = {
       'image/encoded': tf.FixedLenFeature((), tf.string, default_value=''),
+<<<<<<< HEAD
       'image/format': tf.FixedLenFeature((), tf.string, default_value='jpg'),
+=======
+      'image/format': tf.FixedLenFeature((), tf.string, default_value='png'),
+>>>>>>> 27d601a5df8908c6e83af12d31b517abeb1212d4
       'image/class/label': tf.FixedLenFeature(
           [], tf.int64, default_value=tf.zeros([], dtype=tf.int64)),
   }
