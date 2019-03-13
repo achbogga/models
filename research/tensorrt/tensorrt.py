@@ -27,13 +27,15 @@ import json
 import os
 import sys
 import time
+import imageio
 
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.saved_model.python.saved_model import reader
-import tensorflow.contrib.tensorrt as trt
+import tensorrt as trt
+from scipy.ndimage import zoom
 
-from official.resnet import imagenet_preprocessing  # pylint: disable=g-bad-import-order
+#from official.resnet import imagenet_preprocessing  # pylint: disable=g-bad-import-order
 
 _GPU_MEM_FRACTION = 0.50
 _WARMUP_NUM_LOOPS = 5
@@ -42,10 +44,18 @@ _LABELS_FILE = "labellist.json"
 _GRAPH_FILE = "frozen_graph.pb"
 
 
+#auxiliary functions to handle file i/o, image i/o and processing
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
+
 ################################################################################
 # Prep the image input to the graph.
 ################################################################################
-def preprocess_image(file_name, output_height=224, output_width=224,
+def preprocess_image(file_name, output_height=299, output_width=299,
                      num_channels=3):
   """Run standard ImageNet preprocessing on the passed image file.
 
@@ -66,22 +76,27 @@ def preprocess_image(file_name, output_height=224, output_width=224,
     raise ValueError("At this time, only JPEG images are supported. "
                      "Please try another image.")
 
-  image_buffer = tf.read_file(file_name)
-  normalized = imagenet_preprocessing.preprocess_image(
-      image_buffer=image_buffer,
-      bbox=None,
-      output_height=output_height,
-      output_width=output_width,
-      num_channels=num_channels,
-      is_training=False)
+  #image_buffer = tf.read_file(file_name)
+  #normalized = imagenet_preprocessing.preprocess_image(
+  #    image_buffer=image_buffer,
+  #    bbox=None,
+  #    output_height=output_height,
+  #    output_width=output_width,
+  #    num_channels=num_channels,
+  #    is_training=False)
 
-  with tf.Session(config=get_gpu_config()) as sess:
-    result = sess.run([normalized])
+  #with tf.Session(config=get_gpu_config()) as sess:
+  #  result = sess.run([normalized])
 
-  return result[0]
+  #return result[0]
+
+  image_buffer = imageio.imread(file_name)
+  scaled = zoom(image_buffer, [output_height/float(image_buffer.shape[0]), output_width/float(image_buffer.shape[1]), num_channels/float(image_buffer.shape[2])])
+  normalized = prewhiten(scaled)
+  return normalized
 
 
-def batch_from_image(file_name, batch_size, output_height=224, output_width=224,
+def batch_from_image(file_name, batch_size, output_height=299, output_width=299,
                      num_channels=3):
   """Produce a batch of data from the passed image file.
 
@@ -291,6 +306,8 @@ def time_graph(graph_def, data, input_node, output_node, num_loops=100):
 
   with g.as_default():
     iterator = get_iterator(data)
+    data_value = iterator.get_next()
+    print ("Debug: ", data_value)
     return_tensors = tf.import_graph_def(
         graph_def=graph_def,
         input_map={input_node: iterator.get_next()},
@@ -427,6 +444,10 @@ def main(argv):
   parser = TensorRTParser()
   flags = parser.parse_args(args=argv[1:])
 
+  #Create the output_dir if neccessary
+  if not os.path.exists(flags.output_dir):
+  	os.makedirs(flags.output_dir)
+
   # Load the data.
   if flags.image_file:
     data = batch_from_image(flags.image_file, flags.batch_size)
@@ -447,7 +468,11 @@ def main(argv):
   graph_name = os.path.basename(flags.frozen_graph or _GRAPH_FILE)
 
   # Write to a single file for all tests, continuing from previous logs.
-  log_buffer = open(os.path.join(flags.output_dir, _LOG_FILE), "a")
+  log_filename = os.path.join(flags.output_dir, _LOG_FILE)
+  if os.path.exists(log_filename):
+  	log_buffer = open(log_filename, "a")
+  else:
+  	log_buffer = open(log_filename, "w")
 
   # Run inference in all desired modes.
   results = []
